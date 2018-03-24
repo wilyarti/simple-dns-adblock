@@ -3,7 +3,9 @@ simple dns adblocker using dnsmasq
 
 Install dnsmasq.
 
-All directories need to be "nobody:nobody" permissions. Place the update_dnsmasq in /usr/local/bin/
+All directories need to be "nobody:nobody" permissions. 
+
+Place the update_dnsmasq in /usr/local/bin/ (make it executable - chmod +x )
 
 Add the following lines to /etc/crontab:
 30      5       1       *       *       root    update_dnsmasq
@@ -22,7 +24,7 @@ no-resolv
 cache-size=10000
 
 log-queries=extra
-log-facility=/var/log/pihole.log
+log-facility=/var/log/sdb.log
 
 local-ttl=2
 
@@ -30,5 +32,6 @@ log-async
 #open dns servers - change if needed
 server=208.67.222.222
 server=208.67.220.220
+#change interface to match yours
 interface=re1
 
