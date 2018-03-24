@@ -41,10 +41,10 @@ server=208.67.222.222
 server=208.67.220.220
 #change interface to match yours
 interface=re1
-
+```
 Edit /usr/local/etc/dnsmasq.conf:
 ``
 config-dir="/usr/local/etc/dnsmasq.d/"
-
+```
 Start dnsmasq:
 > service dnsmasq start
