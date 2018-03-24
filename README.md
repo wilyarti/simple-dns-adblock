@@ -43,7 +43,7 @@ server=208.67.220.220
 interface=re1
 ```
 Edit /usr/local/etc/dnsmasq.conf:
-``
+```
 config-dir="/usr/local/etc/dnsmasq.d/"
 ```
 Start dnsmasq:
