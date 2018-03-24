@@ -15,7 +15,8 @@ Place the update_dnsmasq in /usr/local/bin/ (make it executable - chmod +x )
 Add the following lines to /etc/crontab:
 ```
 30      5       1       *       *       root    update_dnsmasq
-30      5       1       *       *       root    service dnsmasq restart
+30      5       1       *       *       root    service dnsmasq restart
+```
 
 Create this file (change as neccessary):
 usr/local/etc/dnsmasq.d/simple-dns-block.conf 
