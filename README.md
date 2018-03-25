@@ -47,7 +47,8 @@ Edit /usr/local/etc/dnsmasq.conf:
 config-dir="/usr/local/etc/dnsmasq.d/"
 ```
 Run update_dnsmasq:
-> su -m nobody -c 'update_dnsmasq
+> su -m nobody -c 'update_dnsmasq'
+
 Check for any errors regarding file permissions.
 
 If there are any make sure /usr/local/etc/dnsmasq.d is owned by "nobody:nobody".
