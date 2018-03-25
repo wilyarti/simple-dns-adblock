@@ -1,86 +1,132 @@
 #! /usr/bin/env perl
-use 5.020; 
-use warnings; 
-my $url = "https://raw.githubusercontent.com/pi-hole/pi-hole/master/adlists.default";
-my $adlist = "/usr/local/etc/dnsmasq.d/list.txt";
+use 5.020;
+use warnings;
+use strict;
+
+#my $adlist = "/usr/local/etc/sdb/list.txt";
+my $url =
+  "https://raw.githubusercontent.com/pi-hole/pi-hole/master/adlists.default";
+my $adlist  = "/usr/local/etc/dnsmasq.d/list.txt";
 my $outfile = "/usr/local/etc/dnsmasq.d/blocklist.txt";
-my $ip = "192.168.0.2";
+my $ip      = "192.168.0.2";
 our %hash;
 
+# start our main sub routine
 &main();
+
 sub main {
     my $num = &download();
     writefile($outfile);
-    print "Successfully download and processed $num files.\n";
+    my $numb_dom = scalar keys %hash;
+    say
+"Successfully download and processed $num files. Containing $numb_dom number of domains.";
+    &logger(
+"Successfully download and processed $num files. Containing $numb_dom number of domains.\n"
+    );
 
 }
+
+sub logger {
+    my $msg = shift;
+    `logger -p local0.warning -t update_dnsmasq '$msg'`;
+    if ( $? ne 0 ) {
+        warn "Can't write to syslog!\n";
+    }
+    else {
+        return !!0;
+    }
+}
+
 sub getlist {
-   `curl '$url' -o $adlist`;
-   if ($? ne 0) { 
-       die "Warning $url failed to download!"; 
-   }
+    `curl '$url' -o $adlist`;
+    if ( $? ne 0 ) {
+        &logger("Fatal! Failed to download $adlist");
+        die "Warning $url failed to download!";
+    }
 
 }
+
 sub download {
     &getlist();
-    open (my $AD, "<", $adlist) or die "Can't open file";
     my $i = 0;
-    while (<$AD>) {
-        if (m/^#/) {
-            next;
-        } elsif ($_ eq "\n") {
-            next; 
-        } else {
-            chomp($_);
-           `curl $_ -o /tmp/$i.txt`;
-           if ($? ne 0) { 
-               warn "Warning $_ failed to download!"; 
-           } else {
-               &process("/tmp/$i.txt");
-               $i++;
-           }
+    if ( open( my $AD, "<", $adlist ) ) {
+        while (<$AD>) {
+            if (m/^#/) {
+                next;
+            }
+            elsif ( $_ eq "\n" ) {
+                next;
+            }
+            else {
+                chomp($_);
+                say "Downloading $_ to /tmp/$i.txt";
+                my $s = `curl $_ -o /tmp/$i.txt`;
+                if ( $? ne 0 ) {
+                    warn "Warning $_ failed to download!";
+                    &logger("Warning failed to download: $_");
+                }
+                else {
+                    if ( &process("/tmp/$i.txt") ) {
+                        $i++;
+                    }
+                }
+            }
         }
+        close($AD);
     }
-    close ($AD);
+    else {
+        &logger("Fatal! Failed to open $adlist");
+        die "Can't open $adlist";
+    }
     return $i;
 }
 
 sub process {
     my $file = shift;
-    open (my $FH, "<", $file) or warn "Can't open file $file";
-    while (<$FH>) {
-        s/0.0.0.0//g;
-        s/127.0.0.1//g;
-        s/\s//g;
-        if (m/^#/) {
-            next;
-        } elsif (m /((\w+[\.-])+\w+)/ ) {
-            $hash{$_} = 0;
+    say "Processing file: $file";
+    if ( open( my $FH, "<", $file ) ) {
+        while (<$FH>) {
+            s/0.0.0.0//g;
+            s/127.0.0.1//g;
+            s/\s//g;
+            if (m/^#/) {
+                next;
+            }
+            elsif (m /((\w+[\.-])+\w+)/) {
+                $hash{$_} = 0;
+            }
         }
+        return !!1;
+        close($FH);
     }
-    close($FH);
+    else {
+        warn "Can't open file $file";
+        &logger("Warning failed to process: $file");
+        return !!0;
+    }
 }
 
 sub writefile {
     my $file = shift;
-    open (my $FH, ">", $file) or die "Can't open file";
-    while ( ( my $hash, my $blank ) = each %hash ) {
-        print $FH "$ip $hash\n";
+    if ( open( my $FH, ">", $file ) ) {
+        while ( ( my $hash, my $blank ) = each %hash ) {
+            print $FH "$ip $hash\n";
+        }
+        close($FH);
     }
-    close ($FH);
+    else {
+        &logger("Fatal can not open $file for writing!\n");
+        die "Can't open file";
+    }
 }
-
-
-
-
 
 __END__ 
 =head1 NAME
-sda.pl - [Simple DNS Adblocker - uses Pi-Holes ad-block list with dnsmasq to block ads and malicous websites.]
+download.pl - [description here]
 =head1 VERSION
-This documentation refers to sda.pl version 0.0.1
+This documentation refers to download.pl version 0.0.1
 =head1 USAGE
-    sda.pl [options]
+    download.pl [options]
 =head1 REQUIRED ARGUMENTS
 =over
 None
