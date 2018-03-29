@@ -7,33 +7,57 @@ use Data::Dumper;
 
 #use Regexp::Debugger;
 
+
+our @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
+our %numMonth;
+for my $i (1 .. 12) {
+    $numMonth{$months[$i-1]} = $i;
+}
+our @days   = qw(Sun Mon Tue Wed Thu Fri Sat Sun);
+our $now = DateTime->now();
+
 &main;
 
 sub main {
-    my @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
-    my @days   = qw(Sun Mon Tue Wed Thu Fri Sat Sun);
+    if (!defined $ARGV[2]) {
+        &usage;
+    } elsif (!-f $ARGV[2]) { 
+        &usage; 
+    } 
+    my $err = &process($ARGV[0], $ARGV[1], $ARGV[2]);
+    if ($err != 0) {
+        die "Error processing failed!";
+    }
+    &plot($ARGV[0], $ARGV[1], "$now.dat");
+    &plot($ARGV[0], $ARGV[1], "$now.blocked.dat");
+}
 
-    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
-      localtime();
-      #    print "$mday $months[$mon] $days[$wday]\n";
-      #    over ride day with line below:
-      #    $mday = 25;
+sub usage {
+    say "Usage: minutelog <day> <Mon(th)> <logfile>";
+    die;
+}
+
+sub process {
+    my ($day, $month, $file) = @_;
+    use DateTime;
+    say $now;
     my $dt = DateTime->new(
-        year   => $year,
-        month  => $mon,
-        day    => $mday,
-        hour   => 00,
-        minute => 00,
+        year => $now->year,
+        month => $now->month,
+        hour   => 0,
+        minute => 0,
     );
+      #    $mday = 25;
     my %store;
     my %blstore;
-    while ( <<>> ) {
-        my $string = sprintf "%s %s %02d:%02d", $months[$mon], $mday,
+    open (my $FH, "<", $file) or die "Can't open $file";
+    while ( <$FH> ) {
+        my $string = sprintf "%s %s %02d:%02d", $month, $day,
           $dt->hour, $dt->minute;
-        if (m/^$months[$mon] $mday/) {
+        if (m/^$month $day/) {
             my $count = 0;
             while (1) {
-                $string = sprintf "%s %s %02d:%02d", $months[$mon], $mday,
+                $string = sprintf "%s %s %02d:%02d", $month, $day,
                   $dt->hour, $dt->minute;
                 if ( !m/^$string/ ) {
                     $dt->add( minutes => 1 );
@@ -41,10 +65,11 @@ sub main {
                 }
                 else {
                     if ( m/query/ ) {
-                        my $s = sprintf "2018-%02d-%02d %02d:%02d", $mon, $mday, $dt->hour, $dt->minute;
+                        my $s = sprintf "2018-%02d-%02d %02d:%02d", $numMonth{"$month"}, $day,  $dt->hour, $dt->minute;
                         $store{$s}++;
                     } elsif ( m/blocklist.txt/ ) {
-                        $blstore{$string}++;
+                        my $s = sprintf "2018-%02d-%02d %02d:%02d", $numMonth{"$month"}, $day,  $dt->hour, $dt->minute;
+                        $blstore{$s}++;
 
                     }
                     $count = 0;
@@ -57,12 +82,61 @@ sub main {
 
         }
     }
+    open (my $OF, ">", "./$now.dat") or die "Can't open output file!";
     foreach my $date (sort keys %store) {
         # create csv file for GNUplot
-        say "$date,$store{$date}";
+        print $OF "$date,$store{$date}\n";
     }
+    close ($OF);
+    open (my $OFB, ">", "./$now.blocked.dat") or die "Can't open output file!";
+    foreach my $date (sort keys %blstore) {
+        # create csv file for GNUplot
+        print $OFB "$date,$blstore{$date}\n";
+    }
+    close ($OFB);
+    return !! 0;
 }
 
+sub plot {
+    my ($day, $month, $file) = @_;
+    my $s = sprintf "2018-%02d-%02d", $numMonth{"$month"}, $day;
+    my $plot_data = <<END;
+set datafile separator ","
+set timefmt '%Y-%m-%d %H:%M:%S'
+
+set xlabel "Time"
+set ylabel "Queries Per Minute"
+
+set xdata time
+set grid
+
+#set xzeroaxis linetype 3 linewidth 1.5
+
+#set style line 1 linetype 1 linecolor rgb "green" linewidth 1.000
+#set style line 2 linetype 1 linecolor rgb "red" linewidth 1.000
+
+set terminal png size 2048, 800
+set output "$file.png"
+
+set xrange ['$s 00:00':'$s 23:59']
+set format x '%Y-%m-%d %H:%M:%S'
+set autoscale y
+
+plot '$file' u 1:(\$2) with lines
+END
+    open (my $GP, ">", "./$now.plot") or die "Can't open file to plot!";
+    print $GP $plot_data;
+    close($GP);
+    my $o = `gnuplot $now.plot`;
+    print $o;
+    if ($? ne 0) {
+        die "Failed to plot graph!";
+    }
+
+
+
+
+}
 __END__ 
 =head1 NAME
 minutelog.pl - [description here]
