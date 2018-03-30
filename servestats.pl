@@ -35,9 +35,9 @@ sub main {
     if ($err != 0) {
         die "Error processing failed!";
     }
-    &plot($month, $day, "Quieries", "$now.dat");
+    &plot($month, $day, "Queries", "$now.dat");
     &plot2($month, $day, "Blocked Domains", "$now.bd");
-    &plot2($month, $day, "Most Quieried Domains", "$now.qd");
+    &plot2($month, $day, "Most Queried Domains", "$now.qd");
     &cleanup($now);
 }
 sub cleanup {
@@ -168,8 +168,8 @@ set xrange ['00:00':'23:59']
 set format x '%H:%M'
 set autoscale y
 
-plot '$file' u 1:(\$2) title 'Allowed Quieries' with lines,\\
-    '$file' u 1:(\$3) title 'Blocked Quieries' with lines
+plot '$file' u 1:(\$2) title 'Allowed Queries' with lines,\\
+    '$file' u 1:(\$3) title 'Blocked Queries' with lines
 END
     open (my $GP, ">", "./$now.plot") or die "Can't open file to plot!";
     print $GP $plot_data;
