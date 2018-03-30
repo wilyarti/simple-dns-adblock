@@ -8,12 +8,6 @@ use Data::Dumper;
 #use Regexp::Debugger;
 
 
-our @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
-our %numMonth;
-for my $i (1 .. 12) {
-    $numMonth{$months[$i-1]} = $i;
-}
-our @days   = qw(Sun Mon Tue Wed Thu Fri Sat Sun);
 our $now = DateTime->now();
 
 &main;
@@ -29,7 +23,13 @@ sub main {
         die "Error processing failed!";
     }
     &plot($ARGV[0], $ARGV[1], "$now.dat");
-    &plot($ARGV[0], $ARGV[1], "$now.blocked.dat");
+    &cleanup($now);
+}
+sub cleanup {
+    my $file = shift;
+    unlink ("$file.dat");
+    unlink ("$file.plot");
+
 }
 
 sub usage {
@@ -40,7 +40,6 @@ sub usage {
 sub process {
     my ($day, $month, $file) = @_;
     use DateTime;
-    say $now;
     my $dt = DateTime->new(
         year => $now->year,
         month => $now->month,
@@ -62,13 +61,17 @@ sub process {
                 if ( !m/^$string/ ) {
                     $dt->add( minutes => 1 );
                     $count++;
+                    my $s = sprintf "%02d:%02d", $dt->hour, $dt->minute;
+                    if (! defined $store{$s} ) {
+                        $store{$s} = 0;
+                    }
                 }
                 else {
                     if ( m/query/ ) {
-                        my $s = sprintf "2018-%02d-%02d %02d:%02d", $numMonth{"$month"}, $day,  $dt->hour, $dt->minute;
+                        my $s = sprintf "%02d:%02d", $dt->hour, $dt->minute;
                         $store{$s}++;
                     } elsif ( m/blocklist.txt/ ) {
-                        my $s = sprintf "2018-%02d-%02d %02d:%02d", $numMonth{"$month"}, $day,  $dt->hour, $dt->minute;
+                        my $s = sprintf "%02d:%02d", $dt->hour, $dt->minute;
                         $blstore{$s}++;
 
                     }
@@ -85,44 +88,40 @@ sub process {
     open (my $OF, ">", "./$now.dat") or die "Can't open output file!";
     foreach my $date (sort keys %store) {
         # create csv file for GNUplot
-        print $OF "$date,$store{$date}\n";
+        if (defined $blstore{$date}) {
+            print $OF "$date,$store{$date},$blstore{$date}\n";
+        } else {
+            print $OF "$date,$store{$date},0\n";
+        }
     }
     close ($OF);
-    open (my $OFB, ">", "./$now.blocked.dat") or die "Can't open output file!";
-    foreach my $date (sort keys %blstore) {
-        # create csv file for GNUplot
-        print $OFB "$date,$blstore{$date}\n";
-    }
-    close ($OFB);
     return !! 0;
 }
 
 sub plot {
     my ($day, $month, $file) = @_;
-    my $s = sprintf "2018-%02d-%02d", $numMonth{"$month"}, $day;
     my $plot_data = <<END;
-set datafile separator ","
-set timefmt '%Y-%m-%d %H:%M:%S'
+    set datafile separator ","
+set timefmt '%H:%M:%S'
 
-set xlabel "Time"
+set xlabel "Queries for $month $day"
 set ylabel "Queries Per Minute"
 
 set xdata time
 set grid
 
-#set xzeroaxis linetype 3 linewidth 1.5
+set style line 1 linetype 1 linecolor rgb "green" linewidth 1.000
+set style line 2 linetype 1 linecolor rgb "red" linewidth 1.000
 
-#set style line 1 linetype 1 linecolor rgb "green" linewidth 1.000
-#set style line 2 linetype 1 linecolor rgb "red" linewidth 1.000
+set terminal jpeg size 1024, 512
+set output "$file.jpg"
 
-set terminal png size 2048, 800
-set output "$file.png"
-
-set xrange ['$s 00:00':'$s 23:59']
-set format x '%Y-%m-%d %H:%M:%S'
+set xrange ['00:00':'23:59']
+set format x '%H:%M'
 set autoscale y
 
-plot '$file' u 1:(\$2) with lines
+plot '$file' u 1:(\$2) title 'Allowed Quieries' with lines,\\
+    '$file' u 1:(\$3) title 'Blocked Quieries' with lines
 END
     open (my $GP, ">", "./$now.plot") or die "Can't open file to plot!";
     print $GP $plot_data;
