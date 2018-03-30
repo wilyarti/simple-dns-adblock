@@ -55,3 +55,9 @@ Check for any errors regarding file permissions.
 If there are any make sure /usr/local/etc/dnsmasq.d is owned by "nobody:nobody".
 Start dnsmasq:
 > service dnsmasq start
+
+### Graphing
+To create graphs like the one at the top of this document, download minutelog.pl and run this command:
+> perl minutelog.pl 28 Mar /var/log/pihole.log
+
+You will need to install GNUplot to create the graphs.
