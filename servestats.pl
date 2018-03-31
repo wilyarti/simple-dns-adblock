@@ -7,6 +7,10 @@ use Mojolicious::Lite;
 use DateTime;
 
 our $now = DateTime->now();
+our $basename;
+our $logfile = "/home/undef/pihole.log";
+our $wwwpath = "public";
+our $datapath = "/home/undef/Workspace/src/log_stats/web";
 
 app->config(hypnotoad => {listen => ['http://*:8080']});
 
@@ -18,27 +22,36 @@ get '/' => sub {
     }
     my $m = $numMonth{$now->month};
     my $day = $now->day;
-    print "months is $m";
-    &main($m, $day, "/home/undef/pihole.log");
+    my @s = split /:/, $now;
+    our $basename = $s[0];
+
+    &main($m, $day, $logfile);
     my $c = shift;
-    $c->render(text => "Server stats for $m $day:<br> <img src=\"$now.dat.jpg\"> <br> <img src=\"$now.qd.jpg\"> <br> <img src=\"$now.bd.jpg\">" );
+    $c->render(text => "Server stats for $m $day:<br> <img src=\"$basename.dat.jpg\"> <br> <img src=\"$basename.qd.jpg\"> <br> <img src=\"$basename.bd.jpg\">" );
 };
 
 
 
 sub main {
     my ($month, $day, $file) = @_;
+    # check if log file exists.
     if (!-f $file) { 
-        &usage; 
-    } 
-    my $err = &process($month, $day, $file);
-    if ($err != 0) {
-        die "Error processing failed!";
+        say "Log file missing!";
+    # check if file are already generated for this hour
+    } elsif (-e "$wwwpath/$basename.bd.jpg" && -e "$wwwpath/$basename.qd.jpg" && -e "$wwwpath/$basename.dat.jpg") {
+        say "Files exists!";
+    # finally generate plots
+    } else {
+        my $err = &process($month, $day, $file);
+        if ($err != 0) {
+            warn "Error processing failed!";
+        } else {
+            &plot($month, $day, "Queries", "$basename.dat");
+            &plot2($month, $day, "Blocked Domains", "$basename.bd");
+            &plot2($month, $day, "Most Queried Domains", "$basename.qd");
+            &cleanup($basename);
+        }
     }
-    &plot($month, $day, "Queries", "$now.dat");
-    &plot2($month, $day, "Blocked Domains", "$now.bd");
-    &plot2($month, $day, "Most Queried Domains", "$now.qd");
-    &cleanup($now);
 }
 sub cleanup {
     my $file = shift;
@@ -46,13 +59,8 @@ sub cleanup {
     unlink ("$file.plot") or warn "Couldn't remove file!";
     unlink ("$file.qd") or warn "Couldn't remove file!";
     unlink ("$file.bd") or warn "Couldn't remove file!";
-
 }
 
-sub usage {
-    say "Usage: minutelog <day> <Mon(th)> <logfile>";
-    die;
-}
 
 sub process {
     my ($month, $day,  $file) = @_;
@@ -110,7 +118,7 @@ sub process {
 
         }
     }
-    open (my $OF, ">", "./$now.dat") or die "Can't open output file!";
+    open (my $OF, ">", "$datapath/$basename.dat") or die "Can't open output file!";
     foreach my $date (sort keys %store) {
         # create csv file for GNUplot
         if (defined $blstore{$date}) {
@@ -122,7 +130,7 @@ sub process {
     close ($OF);
     # find top 30 blocked and looked up domains
     my $i = 0;
-    open (my $BD, ">", "./$now.bd") or die "Can't open output file!";
+    open (my $BD, ">", "$datapath/$basename.bd") or die "Can't open output file!";
     foreach my $name (sort { $bdomains{$b} <=> $bdomains{$a} } keys %bdomains) {
         my $s = sprintf "%02d %-8s %s\n", $i, $name, $bdomains{$name};
         print $BD $s;
@@ -133,7 +141,7 @@ sub process {
     }
     close ($BD);
     $i = 0;
-    open (my $QD, ">", "./$now.qd") or die "Can't open output file!";
+    open (my $QD, ">", "$datapath/$basename.qd") or die "Can't open output file!";
     foreach my $name (sort { $domains{$b} <=> $domains{$a} } keys %domains) {
         my $s = sprintf "%02d %-8s %s\n", $i, $name, $domains{$name};
         print $QD $s;
@@ -162,19 +170,19 @@ set style line 1 linetype 1 linecolor rgb "green" linewidth 1.000
 set style line 2 linetype 1 linecolor rgb "red" linewidth 1.000
 
 set terminal jpeg size 1024, 512
-set output "public/$file.jpg"
+set output "$wwwpath/$file.jpg"
 
 set xrange ['00:00':'23:59']
 set format x '%H:%M'
 set autoscale y
 
-plot '$file' u 1:(\$2) title 'Allowed Queries' with lines,\\
-    '$file' u 1:(\$3) title 'Blocked Queries' with lines
+plot '$datapath/$file' u 1:(\$2) title 'Allowed Queries' with lines,\\
+    '$datapath/$file' u 1:(\$3) title 'Blocked Queries' with lines
 END
-    open (my $GP, ">", "./$now.plot") or die "Can't open file to plot!";
+    open (my $GP, ">", "$datapath/$basename.plot") or die "Can't open file to plot!";
     print $GP $plot_data;
     close($GP);
-    my $o = `gnuplot $now.plot`;
+    my $o = `gnuplot $datapath/$basename.plot`;
     print $o;
     if ($? ne 0) {
         die "Failed to plot graph!";
@@ -188,7 +196,7 @@ sub plot2 {
     my ($day, $month, $title, $file) = @_;
     my $plot_data = <<END;
 set terminal png size 1024, 768 font 10
-set output "public/$file.jpg"
+set output "$wwwpath/$file.jpg"
 
 set boxwidth 0.5
 set style fill solid
@@ -198,13 +206,13 @@ set xtics rotate by 90 right
 set ytics rotate by 90 right
 set title '$title'
 
-plot "$file" using 1:3:xtic(2) with boxes
+plot "$datapath/$file" using 1:3:xtic(2) with boxes
 
 END
-    open (my $GP, ">", "./$now.plot") or die "Can't open file to plot!";
+    open (my $GP, ">", "$datapath/$basename.plot") or die "Can't open file to plot!";
     print $GP $plot_data;
     close($GP);
-    my $o = `gnuplot $now.plot`;
+    my $o = `gnuplot $datapath/$basename.plot`;
     print $o;
     if ($? ne 0) {
         die "Failed to plot graph!";
