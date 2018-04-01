@@ -1,0 +1,5 @@
+graph.facebook.com
+api.facebook.com
+star.c10r.facebook.com
+settings-crashlytics-b-103974621.us-east-1.elb.amazonaws.com
+e.crashlytics.com
