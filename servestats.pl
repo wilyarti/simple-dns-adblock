@@ -6,7 +6,6 @@ use Data::Dumper;
 use Mojolicious::Lite;
 use DateTime;
 
-our $now = DateTime->now();
 our $basename;
 our $logfile = "/home/undef/pihole.log";
 our $wwwpath = "public";
@@ -15,43 +14,75 @@ our $datapath = "/home/undef/Workspace/src/log_stats/web";
 app->config(hypnotoad => {listen => ['http://*:8080']});
 
 get '/' => sub {
-    my @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
-    my %numMonth;
-    for (1 .. 12) {
-        $numMonth{$_} = $months[$_-1];
-    }
-    my $m = $numMonth{$now->month};
-    my $day = $now->day;
-    my @s = split /:/, $now;
-    our $basename = $s[0];
 
-    &main($m, $day, $logfile);
+  my $c   = shift;
+  $c->render(text => "Enter a valid data string: MM/DD");
+};
+
+
+get '/:param' => sub {
     my $c = shift;
-    $c->render(text => "Server stats for $m $day:<br> <img src=\"$basename.dat.jpg\"> <br> <img src=\"$basename.qd.jpg\"> <br> <img src=\"$basename.bd.jpg\">" );
+    my $param = $c->param('param');
+    my @args = split /:/, $param;
+    my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+    my ($second, $minute, $hour, $day, $m, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
+    my $year = 1900 + $yearOffset;
+    # fix 0 index of month. (Jan = 0)
+    $m++;
+
+    # custome date entry
+    if (defined $args[0] && defined $args[1]) {
+        $day = $args[1];
+        $m = ($args[0]-1);
+    }
+    my $month = $months[$m];
+    my $basename = sprintf ("%04d-%02d-%02d:%02d", $year, $m, $day, $hour);
+    say $basename;
+    my $err = &main($year, $month, $m, $day, $basename, $logfile);
+    if ($err != 0) {
+        $c->render(text => "No results found for $param" );
+    } else {
+        $c->render(text => "Server stats for $month $day:<br> <img src=\"$basename.dat.jpg\"> <br> <img src=\"$basename.qd.jpg\"> <br> <img src=\"$basename.bd.jpg\">" );
+    }
 };
 
 
 
 sub main {
-    my ($month, $day, $file) = @_;
+    my ($year, $month, $m, $day, $basename, $file) = @_;
+    say "$year, $month, $m, $day, $basename, $file";
     # check if log file exists.
     if (!-f $file) { 
         say "Log file missing!";
     # check if file are already generated for this hour
     } elsif (-e "$wwwpath/$basename.bd.jpg" && -e "$wwwpath/$basename.qd.jpg" && -e "$wwwpath/$basename.dat.jpg") {
-        say "Files exists!";
+        say "Files exists for time $basename.";
     # finally generate plots
     } else {
-        my $err = &process($month, $day, $file);
+        my $err = &process($year, $month, $m, $day, $basename, $file);
         if ($err != 0) {
             warn "Error processing failed!";
+            return !! 1;
         } else {
-            &plot($month, $day, "Queries", "$basename.dat");
-            &plot2($month, $day, "Blocked Domains", "$basename.bd");
-            &plot2($month, $day, "Most Queried Domains", "$basename.qd");
+            my $err = &plot($month, $day, "Queries", $basename, "$basename.dat");
+            if ($err != 0) {
+                warn "Error plotting file!";
+                return !! 1;
+            }
+            $err = &plot2($month, $day, "Blocked Domains", $basename, "$basename.bd");
+            if ($err != 0) {
+                warn "Error plotting file!";
+                return !! 1;
+            }
+            $err = &plot2($month, $day, "Most Queried Domains", $basename, "$basename.qd");
+            if ($err != 0) {
+                warn "Error plotting file!";
+                return !! 1;
+            }
             &cleanup($basename);
         }
     }
+    return !! 0;
 }
 sub cleanup {
     my $file = shift;
@@ -63,11 +94,10 @@ sub cleanup {
 
 
 sub process {
-    my ($month, $day,  $file) = @_;
-    use DateTime;
+    my ($year, $month, $m, $day, $basename, $file) = @_;
     my $dt = DateTime->new(
-        year => $now->year,
-        month => $now->month,
+        year => $year,
+        month => $m,
         hour   => 0,
         minute => 0,
     );
@@ -77,6 +107,7 @@ sub process {
     my %bdomains;
     my %clients;
     open (my $FH, "<", $file) or die "Can't open $file";
+    my $i = 0;
     while ( <$FH> ) {
         my $string = sprintf "%s %s %02d:%02d", $month, $day,
           $dt->hour, $dt->minute;
@@ -102,10 +133,12 @@ sub process {
                         $clients{$host[0]}++;
                         my $s = sprintf "%02d:%02d", $dt->hour, $dt->minute;
                         $store{$s}++;
+                        $i++;
                     } elsif ( m/blocklist.txt/ ) {
                         $bdomains{$words[7]}++;
                         my $s = sprintf "%02d:%02d", $dt->hour, $dt->minute;
                         $blstore{$s}++;
+                        $i++;
 
                     }
                     $count = 0;
@@ -118,6 +151,9 @@ sub process {
 
         }
     }
+    if ($i == 0) {
+        return !! 1;
+    }
     open (my $OF, ">", "$datapath/$basename.dat") or die "Can't open output file!";
     foreach my $date (sort keys %store) {
         # create csv file for GNUplot
@@ -129,7 +165,7 @@ sub process {
     }
     close ($OF);
     # find top 30 blocked and looked up domains
-    my $i = 0;
+    $i = 0;
     open (my $BD, ">", "$datapath/$basename.bd") or die "Can't open output file!";
     foreach my $name (sort { $bdomains{$b} <=> $bdomains{$a} } keys %bdomains) {
         my $s = sprintf "%02d %-8s %s\n", $i, $name, $bdomains{$name};
@@ -155,7 +191,7 @@ sub process {
 }
 
 sub plot {
-    my ($day, $month, $title, $file) = @_;
+    my ($month, $day, $title, $basename, $file) = @_;
     my $plot_data = <<END;
     set datafile separator ","
 set timefmt '%H:%M:%S'
@@ -185,15 +221,14 @@ END
     my $o = `gnuplot $datapath/$basename.plot`;
     print $o;
     if ($? ne 0) {
-        die "Failed to plot graph!";
+        warn "Failed to plot graph!";
+        return !! 1;
     }
-
-
-
+    return !! 0;
 
 }
 sub plot2 {
-    my ($day, $month, $title, $file) = @_;
+    my ($month, $day, $title, $basename, $file) = @_;
     my $plot_data = <<END;
 set terminal png size 1024, 768 font 10
 set output "$wwwpath/$file.jpg"
@@ -215,8 +250,10 @@ END
     my $o = `gnuplot $datapath/$basename.plot`;
     print $o;
     if ($? ne 0) {
-        die "Failed to plot graph!";
+         warn "Failed to plot graph!";
+         return !! 1;
     }
+    return !! 0;
 
 }
 app->start;
