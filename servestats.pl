@@ -5,6 +5,7 @@ use strict;
 use Data::Dumper;
 use Mojolicious::Lite;
 use DateTime;
+use File::Copy;
 
 our $basename;
 our $logfile = "/home/undef/pihole.log";
@@ -42,7 +43,7 @@ get '/:param' => sub {
     if ($err != 0) {
         $c->render(text => "No results found for $param" );
     } else {
-        $c->render(text => "Server stats for $month $day:<br> <img src=\"$basename.dat.jpg\"> <br> <img src=\"$basename.qd.jpg\"> <br> <img src=\"$basename.bd.jpg\">" );
+        $c->render(text => "Server stats for $month $day:<p> <img src=\"$basename.dat.jpg\"> <p> <img src=\"$basename.qd.jpg\"> <p> <img src=\"$basename.bd.jpg\">" );
     }
 };
 
@@ -240,20 +241,32 @@ set bmargin 15
 set xtics rotate by 90 right
 set ytics rotate by 90 right
 set title '$title'
+set xlabel "$title for $month $day"
+set ylabel "Total Queries"
 
-plot "$datapath/$file" using 1:3:xtic(2) with boxes
+plot "$datapath/$file" using 1:3:xtic(2) title 'Queries' with boxes
 
 END
     open (my $GP, ">", "$datapath/$basename.plot") or die "Can't open file to plot!";
     print $GP $plot_data;
     close($GP);
     my $o = `gnuplot $datapath/$basename.plot`;
-    print $o;
     if ($? ne 0) {
-         warn "Failed to plot graph!";
+         warn "Failed to plot graph!\n: $o";
          return !! 1;
     }
-    return !! 0;
+    `convert '$wwwpath/$file.jpg' -rotate 90 '$wwwpath/$file.1'`;
+    if ($? ne 0) {
+         warn "Failed to plot graph!\n: $o";
+         return !! 1;
+    }
+    unlink("$wwwpath/$file.jpg");
+    if (move ("$wwwpath/$file.1", "$wwwpath/$file.jpg")) {
+        warn "Can't move file!";
+        return !! 0;
+    } else {
+        return !! 1;
+    }
 
 }
 app->start;
