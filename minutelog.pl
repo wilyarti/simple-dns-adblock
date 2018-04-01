@@ -27,8 +27,8 @@ sub main {
 }
 sub cleanup {
     my $file = shift;
-    unlink ("$file.dat");
-    unlink ("$file.plot");
+    unlink ("$file.dat") or warn "Couldn't remove file!";
+    unlink ("$file.plot") or warn "Couldn't remove file!";
 
 }
 
@@ -51,14 +51,15 @@ sub process {
     my %blstore;
     open (my $FH, "<", $file) or die "Can't open $file";
     while ( <$FH> ) {
-        my $string = sprintf "%s %s %02d:%02d", $month, $day,
-          $dt->hour, $dt->minute;
-        if (m/^$month $day/) {
+        #$_ =~ s/ +/ /;
+        my $string = sprintf "%02d:%02d",$dt->hour, $dt->minute;
+        # beware of multiple white space. log format is often single digit or
+        # date
+        if (m/^$month( +)$day/) {
             my $count = 0;
             while (1) {
-                $string = sprintf "%s %s %02d:%02d", $month, $day,
-                  $dt->hour, $dt->minute;
-                if ( !m/^$string/ ) {
+                $string = sprintf "%02d:%02d", $dt->hour, $dt->minute;
+                if ( !m/$string/ ) {
                     $dt->add( minutes => 1 );
                     $count++;
                     my $s = sprintf "%02d:%02d", $dt->hour, $dt->minute;
