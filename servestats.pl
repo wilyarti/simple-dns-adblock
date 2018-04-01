@@ -43,7 +43,7 @@ get '/:param' => sub {
     if ($err != 0) {
         $c->render(text => "No results found for $param" );
     } else {
-        $c->render(text => "Server stats for $month $day:<p> <img src=\"/$basename.dat.jpg\"> <p> <img src=\"/$basename.qd.jpg\"> <p> <img src=\"/$basename.bd.jpg\">" );
+        $c->render(text => "Server stats for $month $day:<br> <img src=\"/$basename.dat.jpg\"> <br> <img src=\"/$basename.qd.jpg\"> <br> <img src=\"/$basename.bd.jpg\">" );
     }
 };
 
@@ -109,15 +109,16 @@ sub process {
     my %clients;
     open (my $FH, "<", $file) or die "Can't open $file";
     my $i = 0;
+    # force scalar context for $day as the logfile is has single digit
+    # date format: Apr 1
+    $day  = $day + 0;
     while ( <$FH> ) {
-        my $string = sprintf "%s %s %02d:%02d", $month, $day,
-          $dt->hour, $dt->minute;
-        if (m/^$month $day/) {
+        my $string = sprintf "%02d:%02d", $dt->hour, $dt->minute;
+        if (m/^$month( +)$day/) {
             my $count = 0;
             while (1) {
-                $string = sprintf "%s %s %02d:%02d", $month, $day,
-                  $dt->hour, $dt->minute;
-                if ( !m/^$string/ ) {
+                $string = sprintf "%02d:%02d", $dt->hour, $dt->minute;
+                if ( !m/$string/ ) {
                     $dt->add( minutes => 1 );
                     $count++;
                     my $s = sprintf "%02d:%02d", $dt->hour, $dt->minute;
@@ -127,6 +128,9 @@ sub process {
                 }
                 else {
                     # split up text to remove various data points.
+                    # remove multiple space as it ruins simple matching log
+                    # below
+                    $_ =~ s/ +/ /g;
                     my @words = split / /, $_;
                     if ( m/query/ ) {
                         $domains{$words[7]}++;
