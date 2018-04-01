@@ -43,7 +43,7 @@ get '/:param' => sub {
     if ($err != 0) {
         $c->render(text => "No results found for $param" );
     } else {
-        $c->render(text => "Server stats for $month $day:<p> <img src=\"$basename.dat.jpg\"> <p> <img src=\"$basename.qd.jpg\"> <p> <img src=\"$basename.bd.jpg\">" );
+        $c->render(text => "Server stats for $month $day:<p> <img src=\"/$basename.dat.jpg\"> <p> <img src=\"/$basename.qd.jpg\"> <p> <img src=\"/$basename.bd.jpg\">" );
     }
 };
 
