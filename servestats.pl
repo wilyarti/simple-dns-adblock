@@ -8,9 +8,9 @@ use DateTime;
 use File::Copy;
 
 our $basename;
-our $logfile = "/home/undef/pihole.log";
-our $wwwpath = "public";
-our $datapath = "/home/undef/Workspace/src/log_stats/web";
+our $logfile = "/var/log/pihole.log";
+our $wwwpath = "/home/nobody/public";
+our $datapath = "/home/nobody";
 
 app->config(hypnotoad => {listen => ['http://*:8080']});
 
