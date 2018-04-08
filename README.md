@@ -1,6 +1,6 @@
 # simple-dns-adblock
 simple dns adblocker using dnsmasq
-![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/2018-03-29T16%3A28%3A28.dat.jpg)
+![alt text](https://github.com/wilyarti/simple-dns-adblock/raw/master/2018-03-07_10.dat.jpg)
 
 #### To install on windows:
 
