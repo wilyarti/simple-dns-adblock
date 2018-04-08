@@ -6,7 +6,7 @@ use LWP::Simple;
 
 #my $adlist = "/usr/local/etc/sdb/list.txt";
 my $url =
-  "http://raw.githubusercontent.com/pi-hole/pi-hole/master/adlists.default";
+  "https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/master.list";
 my $outfile = "/tmp/hosts";
 my $ip      = "192.168.0.2";
 our %hash;
@@ -19,7 +19,10 @@ sub main {
     writefile($outfile);
     my $numb_dom = scalar keys %hash;
     say
+
 "Successfully download and processed $num files. Containing $numb_dom number of domains.";
+	my $s = <STDIN>;
+
 
 }
 
@@ -42,7 +45,7 @@ sub download {
             next;
         }
         else {
-            say "Downloading $_";
+            say "Downloading \"$_\"";
             my $s = get($_);
             if (!defined $s) {
                 warn "Warning $_ failed to download!";
@@ -75,7 +78,7 @@ sub process {
             $hash{$_} = 0;
         }
     }
-    print " found $counter";
+    print " found $counter\n";
 
     return !!1;
 }
