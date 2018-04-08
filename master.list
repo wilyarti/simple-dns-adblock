@@ -18,8 +18,8 @@ https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt
 ##Disconnect.me Ads
 https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
 
-##Hosts-file.net
-https://hosts-file.net/ad_servers.txt
+##Hosts-file.net local mirror
+https://github.com/wilyarti/simple-dns-adblock/raw/master/ad_servers.txt
 
 ## simple-dns-adblock my list that includes various websites
 https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/blocklist.txt
