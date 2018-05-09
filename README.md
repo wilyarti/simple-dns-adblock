@@ -1,12 +1,12 @@
 # simple-dns-adblock
 simple dns adblocker using dnsmasq
-![alt text](https://github.com/wilyarti/simple-dns-adblock/raw/master/2018-03-07_10.dat.jpg)
+![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/Screenshot_2018-05-09_23-51-33.png)
 
 #### To install on windows:
 
-Download windnsblock.exe and run as administrator.
+Download windnsblock.exe and run as administrator this will use the host file to DNS block the 122k domains in the main Ad Blocker list.
 
-#### To install:
+#### To install (FreeBSD only):
 Install dnsmasq. Enable dnsmasq:
 ```
 sysrc dnsmasq_enable="YES"
@@ -66,24 +66,23 @@ To create graphs like the one at the top of this document, download minutelog.pl
 You will need to install GNUplot and ImageMagick installed to create the graphs.
 
 ### Web front end
-I have written basic web server front end that interprets any dnsmasq log file (provided the blocklist is named "blocklist.txt".
+I have written a simple JavaScript based grapher that uses Perl and Mojolicious as a backend.
 
-To run it you will need Mojolicious, gnuplot and imagemagick installed.
+It is currently only for internal use at it analyses the whole log file ever 3rd time a GET request is issued.
+
+The future plan is to have a dedicated server that get's queries about certain statistics and analyses the log file as it runs.
 
 To run the program:
 ```
 1.) create /home/nobody and /home/nobody/public
-2.) place servestats.pl in /home/nobody
+2.) place graphstats.pl in /home/nobody
 3.) change ownership to "nobody:nobody" 
 > chown -R nobody:nobody /home/nobody
 4.) run the server
-> su -m nobody -c 'hypnotoad servestats.pl'
+> su -m nobody -c 'hypnotoad graphstats.pl'
 5.) type in the following url:
 > 127.0.0.1:8080/03:28
 ```
 
 The url can be changed to your hosts IPV4 public address, the 03:28 refers to the month and day. Change it accordingly to which date you want polled.
 
-To prevent overload only one result per hour will be polled. 
-
-There is no limit to the size of log file being polled as the alogorith is quite efficient - however it is quite slow as it generates all files server side. The first generation may take a few seconds.
