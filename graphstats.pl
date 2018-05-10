@@ -51,6 +51,21 @@ get '/blocked/:param' => sub {
     $self->render(json => \%blstore );
 };
 
+get '/top/clients' => sub {
+	my $self = shift;
+	my %top;
+	my $i =0;
+	foreach my $name (sort { $clients{$b} <=> $clients{$a} } keys %clients) {
+        $top{$name} = $clients{$name};
+        say "$name => $clients{$name}";
+                $i++;
+        if ($i > 29) {
+			last;
+		}
+    }
+    $self->render(json => \%top);
+};
+
  sub block {
     my $c      = shift;
     my $param = $c->param('param');
@@ -202,7 +217,6 @@ window.onload = function () {
     var dataPoints = [];
     $.getJSON("/blocked/<%= thisparam %>", function(data) {
         $.each(data, function(key, value){
-        console.log(key)
         time = key.split(/\:|\-/g);
         dataPoints.push({x: new Date(2018, 05, 09, time[0], time[1]),y: parseInt(value)});
         });
@@ -236,7 +250,6 @@ window.onload = function () {
      var dataPoints2 = [];
         $.getJSON("/allowed/<%= thisparam %>", function(data) {
             $.each(data, function(key, value){
-            console.log(key)
             time = key.split(/\:|\-/g);
             dataPoints2.push({x: new Date(2018, 05, 09, time[0], time[1]),y: parseInt(value)});
             });
@@ -265,6 +278,70 @@ window.onload = function () {
 	    $( "#sumallowed" ).html( "Total queries: " + sum );
         });
     
+     var dataPoints3 = [];
+        $.getJSON("/top/clients", function(data3) {
+            $.each(data3, function(key, value){
+				            console.log("Key " + key + " value " + value);
+            dataPoints3.push({y: parseInt(value), label: key});
+            });
+        var chart3 = new CanvasJS.Chart("chartContainer3", {
+        animationEnabled: true,
+	
+		title:{
+			text:"Top Clients",
+			fontSize: 18
+		},
+		axisX:{
+			   labelFontSize: 16,
+			interval: 1
+		},
+		axisY2:{
+			interlacedColor: "rgba(1,77,101,.2)",
+			gridColor: "rgba(1,77,101,.1)",
+			title: "Number of Queries",
+			   labelFontSize: 16
+
+		},
+            data: [{
+			type: "bar",
+			name: "companies",
+			axisYType: "secondary",
+			color: "#014D65",
+            dataPoints : dataPoints3,
+            			fontSize: 12
+            }],
+        });
+        sortDataSeries(chart3);
+        function sortDataSeries(chart){
+    var total = [];
+    var tempTotal, temp;
+    var dpsTotal = 0;
+    for(var j = 0; j < chart.options.data[0].dataPoints.length; j++) {
+      dpsTotal = 0;
+      for(var i = 0; i < chart.options.data.length; i++) {
+        dpsTotal += (chart.options.data[i].dataPoints[j].y)
+      }
+      total.push(dpsTotal);
+    }
+		 
+    for(var i = 0; i < total.length; i++) {        
+      for( var j = 0; j < total.length - i - 1; j++){      
+        if(total[j] > total[j+1]) {
+        	tempTotal = total[j];
+          total[j] = total[j+1];
+          total[j+1] = tempTotal;
+          for(var k = 0; k < chart.options.data.length; k++){
+            temp = chart.options.data[k].dataPoints[j];
+            chart.options.data[k].dataPoints[j] = chart.options.data[k].dataPoints[j+1];
+            chart.options.data[k].dataPoints[j+1] = temp;
+          }
+        }
+      }
+    }    
+}
+	    chart3.render();
+        });
+        
 
 }
 </script>
@@ -273,9 +350,11 @@ window.onload = function () {
 
 	<%= stats %> 
 
-<div id="chartContainer" style="height: 370px; max-width: 920px; margin: 0px auto;"></div>
+<div id="chartContainer" style="height: 400px; max-width: 1400px; margin: 0px auto;"></div>
 <div id="sumblocked"></div>
-<div id="chartContainer2" style="height: 370px; max-width: 920px; margin: 0px auto;"></div>
+<div id="chartContainer2" style="height: 400px; max-width: 1400px; margin: 0px auto;"></div>
+<div id="chartContainer3" style="height: 1400px; max-width: 1400px; margin: 0px auto;"></div>
+
 <div id="sumallowed"></div>
 
 <script src="/canvasjs.min.js"></script>
