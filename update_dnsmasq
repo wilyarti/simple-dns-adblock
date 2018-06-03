@@ -6,9 +6,9 @@ use strict;
 #my $adlist = "/usr/local/etc/sdb/list.txt";
 my $url =
   "https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/master.list";
-my $adlist  = "/tmp/list.txt";
-my $outfile = "/tmp/blocklist.txt";
-my $ip      = "192.168.0.2";
+my $adlist  = "/usr/local/etc/dnsmasq.d/list.txt";
+my $outfile = "/usr/local/etc/dnsmasq.d/blocklist.txt";
+my $ip      = "0.0.0.0";
 our %hash;
 
 # start our main sub routine
