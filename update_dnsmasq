@@ -6,8 +6,8 @@ use strict;
 #my $adlist = "/usr/local/etc/sdb/list.txt";
 my $url =
   "https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/master.list";
-my $adlist  = "/usr/local/etc/dnsmasq.d/list.txt";
-my $outfile = "/usr/local/etc/dnsmasq.d/blocklist.txt";
+my $adlist  = "/tmp/list.txt";
+my $outfile = "/tmp/blocklist.txt";
 my $ip      = "192.168.0.2";
 our %hash;
 
@@ -86,6 +86,7 @@ sub process {
     say "Processing file: $file";
     if ( open( my $FH, "<", $file ) ) {
         while (<$FH>) {
+            s/\s*#.*$//;
             s/0.0.0.0//g;
             s/127.0.0.1//g;
             s/\s//g;
