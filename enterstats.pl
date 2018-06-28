@@ -4,7 +4,7 @@ use warnings;
 use strict;
 use Data::Dumper;
 use DateTime;
-
+use File::Tail;
 use DBI;
 
 our $logfile = "/home/undef/pihole.log";
@@ -20,10 +20,10 @@ sub initdb {
  $dbh = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
 eval { $dbh->do("CREATE TABLE query (time CHAR(16) NOT NULL, 
                                         source CHAR(16) NOT NULL,
-                                        domain CHAR(16) NOT NULL)"); };
+                                        domain CHAR(255) NOT NULL)"); };
 warn $@ if $@;
 eval { $dbh->do("CREATE TABLE blocked (time CHAR(16) NOT NULL,
-                                        domain CHAR(16) NOT NULL)"); };
+                                        domain CHAR(255) NOT NULL)"); };
 warn $@ if $@;
 }
 
@@ -32,6 +32,12 @@ sub main {
     while (<$FH>) {
         &proc($_);
     }
+    close($FH);
+    my $file=File::Tail->new($logfile);
+    my $line;
+    while (defined($line=$file->read)) {
+        &proc($line);
+        }
     return !!0;
 }
 
@@ -52,11 +58,10 @@ sub proc {
         $line =~ s/ +/ /g;
         my @words = split / /, $line;
         my @hms  = split /:/, $words[2];
-        my @host  = split /\//, $words[5];
 
         ### DBI stuff
         if (scalar(@hms) >= 2) {
-                &doitnow( "blocked", "$words[0]-$words[1]-$hms[0]:$hms[1]", "$host[0]", "", 1 );
+                &doitnow( "blocked", "$words[0]-$words[1]-$hms[0]:$hms[1]", "", "$words[7]", 1 );
         }
     }
 
