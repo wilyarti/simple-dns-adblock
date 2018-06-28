@@ -7,90 +7,31 @@ use DateTime;
 
 use DBI;
 
-our $basename;
-our %clients;
-our $numq;
-our $numqb;
-our %store;
-our $aget = 0;
-our %blstore;
-our $text_status;
-
-my @months;
-my $month;
-my $string;
-my $matched   = 0;
-my $lastmonth = 0;
-my $lastday   = 1;
-my $dt;
-my %domains;
-my %bdomains;
-my (
-    $second,    $minute,    $hour,
-    $day,       $m,         $yearOffset,
-    $dayOfWeek, $dayOfYear, $daylightSavings
-) = localtime();
-
 our $logfile = "/home/undef/pihole.log";
-my $dbfile = "/home/undef/db.sqlite";
-our $wwwpath  = "/home/undef/www/";
-our $datapath = "/home/undef/www/public";
+our $dbfile = "/home/undef/db.sqlite";
+our $dbh;
 
-my $dbh = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
-eval { $dbh->do(
-        "CREATE TABLE blocked (date CHAR(16) NOT NULL, count REAL) "); };
-warn $@ if $@;
-eval { $dbh->do("CREATE TABLE query (date CHAR(16) NOT NULL, count REAL) "); };
-warn $@ if $@;
 
+&initdb;
 &main;
 
+# initialize database tables
+sub initdb {
+ $dbh = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
+eval { $dbh->do("CREATE TABLE query (time CHAR(16) NOT NULL, 
+                                        source CHAR(16) NOT NULL,
+                                        domain CHAR(16) NOT NULL)"); };
+warn $@ if $@;
+eval { $dbh->do("CREATE TABLE blocked (time CHAR(16) NOT NULL,
+                                        domain CHAR(16) NOT NULL)"); };
+warn $@ if $@;
+}
+
 sub main {
-    @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-
-    my $year = 1900 + $yearOffset;
-
-    # assume start of year
-    $day = "01";
-    $m   = "04";
-
-    my $month = $months[ $m - 1 ];
-    my $basename = sprintf( "%04d-%02d-%02d:%02d", $year, $m, $day, $hour );
-
-    my $file = $logfile;
-    say "$year, $month, $m, $day, $basename, $file";
-
-    # check if log file exists.
-    if ( !-f $file ) {
-        say "Log file missing!";
-
-        #server is not public. regerate for every request.
-        # check if file are already generated for this hour
-        # finally generate plots
-    }
-    $dt = DateTime->new(
-        year   => $year,
-        month  => $m,
-        hour   => 0,
-        minute => 0,
-    );
-
-    delete @clients{ keys %clients };
-    delete @blstore{ keys %blstore };
-    delete @store{ keys %store };
-    $numq = $numqb = 0;
-    open( my $FH, "<", $file ) or die "Can't open $file";
-
-    # force scalar context for $day as the logfile is has single digit
-    # date format: Apr 1
-    $day = $day + 0;
-
+    open( my $FH, "<", $logfile ) or die "Can't open $logfile";
     while (<$FH>) {
         &proc($_);
     }
-
-    print Dumper(%domains);
-    print Dumper(%clients);
     return !!0;
 }
 
@@ -100,48 +41,42 @@ sub proc {
         $line =~ s/ +/ /g;
         my @words = split / /, $line;
         my @hms  = split /:/, $words[2];
+        my @host  = split /\//, $words[5];
 
-        my @host = split /\//, $words[5];
-        say "$words[7] ++ $host[0] host";
-        $domains{ $words[7] }++;
-        $clients{ $host[0] }++;
         ### DBI stuff
         if (scalar(@hms) >= 2) {
-        &doitnow( "query", "$hms[0]-$hms[1]" );
+                &doitnow( "query", "$words[0]-$words[1]-$hms[0]:$hms[1]", "$host[0]", "$words[7]", 0 );
         }
     }
     elsif ( $line =~ m/blocklist.txt/ ) {
         $line =~ s/ +/ /g;
         my @words = split / /, $line;
         my @hms  = split /:/, $words[2];
+        my @host  = split /\//, $words[5];
 
-        #my @host = split /\//, $words[5];
         ### DBI stuff
         if (scalar(@hms) >= 2) {
-                &doitnow( "blocked", "$hms[0]-$hms[1]" );
-                }
+                &doitnow( "blocked", "$words[0]-$words[1]-$hms[0]:$hms[1]", "$host[0]", "", 1 );
+        }
     }
 
 }
 
 sub doitnow {
-    my ( $table, $datestring ) = @_;
-    my $stmt = qq(SELECT COUNT from blocked WHERE date = \"$datestring\");
-    my $sth  = $dbh->prepare($stmt);
-    my $rv   = $sth->execute() or die $DBI::errstr;
-    if ( $rv < 0 ) {
-        print $DBI::errstr;
+    my ( $table, $time, $source, $domain, $type ) = @_;
+    say "inserting $table, $time, $source, $domain, $type ";
+    my $sql;
+    if ($type == 0) {
+        $sql = "INSERT INTO $table ( 'time', 'source', 'domain' ) VALUES ( '$time', '$source', '$domain')";
+    } elsif ($type == 1) {
+        $sql = "INSERT INTO $table ( 'time', 'domain' ) VALUES ( '$time', '$domain')";
+    } else {
+        return !! 1;
     }
-    eval {
-        say "update into $table $datestring";
-        my $sql =
-          "UPDATE $table SET count = count + 1 WHERE date = \"$datestring\"";
-        my $sendit = $dbh->prepare($sql);
-        $sendit->execute();
-    }; if ($@) {
-        say "insert into $table $datestring";
-        my $sql = "INSERT OR REPLACE INTO $table ( date, count ) VALUES( ?, ?)";
-        my $sendit = $dbh->prepare($sql);
-        $sendit->execute( "$datestring", 0 );
+    eval { $dbh->do($sql); };
+    if ($@) {
+        warn $@;
+        return !! 1;
     }
+    return !! 0;
 }

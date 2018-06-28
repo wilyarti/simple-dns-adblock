@@ -54,7 +54,7 @@ get '/allowed/:param' => sub {
             $query{$s} = 0;
         }
     }
-    my $stmt = qq(SELECT * FROM query WHERE value like '$param-%' );
+    my $stmt = qq(SELECT time FROM query WHERE time like '$param-%' );
     my $sth  = $dbh->prepare($stmt);
     my $rv   = $sth->execute() or die $DBI::errstr;
     if ( $rv < 0 ) {
@@ -62,21 +62,17 @@ get '/allowed/:param' => sub {
     }
 
     while ( my @row = $sth->fetchrow_array() ) {
-        print "VALUE = " . $row[0] . "\n";
-        print "COUNT = " . $row[1] . "\n";
         my @time = split /-/, $row[0];
-        print $time[2];
-        $query{ $time[2] } = $row[1];
+        $query{ $time[2] }++;
     }
     $self->render( json => \%query );
 };
 
 get '/blocked/:param' => sub {
-    my $self  = shift;
-    my $param = $self->param('param');
-
+    my $self   = shift;
+    my $param  = $self->param('param');
     my $dbfile = "/home/undef/db.sqlite";
-    my $dbh = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
+    my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
     my %query;
     for ( 0 .. 23 ) {
         my $i = $_;
@@ -85,7 +81,7 @@ get '/blocked/:param' => sub {
             $query{$s} = 0;
         }
     }
-    my $stmt = qq(SELECT * FROM blocked WHERE value like '$param-%' );
+    my $stmt = qq(SELECT time FROM blocked WHERE time like '$param-%' );
     my $sth  = $dbh->prepare($stmt);
     my $rv   = $sth->execute() or die $DBI::errstr;
     if ( $rv < 0 ) {
@@ -93,11 +89,8 @@ get '/blocked/:param' => sub {
     }
 
     while ( my @row = $sth->fetchrow_array() ) {
-        print "VALUE = " . $row[0] . "\n";
-        print "COUNT = " . $row[1] . "\n";
         my @time = split /-/, $row[0];
-        print $time[2];
-        $query{ $time[2] } = $row[1];
+        $query{ $time[2] }++;
     }
     $self->render( json => \%query );
 };
@@ -107,25 +100,20 @@ get '/top/clients' => sub {
     my $dbfile = "/home/undef/db.sqlite";
     my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
 
-    my %top;
-    my @queries = ("clients");
-    foreach my $query (@queries) {
-        my $stmt = qq(SELECT * FROM $query ORDER BY count DESC LIMIT 50 );
-        print $stmt;
-        my $sth = $dbh->prepare($stmt);
-        my $rv = $sth->execute() or die $DBI::errstr;
-        if ( $rv < 0 ) {
-            print $DBI::errstr;
-        }
-        while ( my @row = $sth->fetchrow_array() ) {
-            $top{ $row[0] } = $row[1];
-            print "VALUE = " . $row[0] . "\n";
-            print "COUNT = " . $row[1] . "\n";
-        }
-
+    my $stmt = qq(SELECT source FROM query;);
+    my $sth  = $dbh->prepare($stmt);
+    my $rv   = $sth->execute() or die $DBI::errstr;
+    if ( $rv < 0 ) {
+        print $DBI::errstr;
     }
-    $self->render( json => \%top );
+	my %clients;
+    while ( my @row = $sth->fetchrow_array() ) {
+        my @time = split /-/, $row[0];
+        $clients{ $row[0] }++;
+    }
+    $self->render( json => \%clients );
 };
+
 
 app->start;
 
