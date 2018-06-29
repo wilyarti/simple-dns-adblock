@@ -1,38 +1,40 @@
 #! /usr/bin/env perl
-use 5.020;
 use warnings;
 use strict;
-use Data::Dumper;
 use Mojolicious::Lite;
 use DateTime;
 use Mojo::JSON qw(decode_json encode_json);
-use File::Copy;
 use DBI;
 
-
-our $basename;
-our %clients;
-our $numq;
-our $numqb;
-our %store;
-our $aget = 0;
-our %blstore;
 our $text_status;
 
-our $logfile  = "/var/log/pihole.log";
-our $wwwpath  = "/home/nobody/public/";
-our $datapath = "/home/nobody/";
+our $dbfile = "/home/nobody/db.sqlite";
 
-app->config( hypnotoad => { listen => ['http://*:8090'] } );
+app->config( hypnotoad => { listen => ['http://*:8000'] } );
 
-helper stats => sub {
-    return $text_status;
 
-};
 helper thisparam => sub {
     my $c     = shift;
     my $param = $c->param('param');
     return $param;
+
+};
+
+helper gettime => sub {
+    my $c     = shift;
+    my $arg = shift;
+        my (
+            $second,    $minute,    $hour,
+            $day,       $m,         $yearOffset,
+            $dayOfWeek, $dayOfYear, $daylightSavings
+        ) = localtime();
+    my $year = 1900 + $yearOffset;
+    my $param = $c->param('param');
+    my %time;
+    $time{"year"} = $year;
+    $time{"day"} = $day;
+    $time{"month"} = $m;
+    return %time{$arg};
 
 };
 
@@ -47,7 +49,6 @@ get '/' => sub {
     my $year = 1900 + $yearOffset;
 
     # fix 0 index of month. (Jan = 0)
-    $m++;
     $self->redirect_to("$months[$m]-$day");
 
 };
@@ -78,7 +79,6 @@ get '/allowed/:param' => sub {
        return !! 1;
     }
 
-    my $dbfile = "/home/undef/db.sqlite";
     my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
     my %query;
     for ( 0 .. 23 ) {
@@ -94,11 +94,13 @@ get '/allowed/:param' => sub {
     if ( $rv < 0 ) {
         print $DBI::errstr;
     }
-
+    my $count;
     while ( my @row = $sth->fetchrow_array() ) {
         my @time = split /-/, $row[0];
         $query{ $time[2] }++;
+        $count++;
     }
+    say "total queries: $count";
     $self->render( json => \%query );
 };
 
@@ -126,8 +128,6 @@ get '/blocked/:param' => sub {
            $self->render( text => "invalid" );
            return !! 1;
         }
-
-    my $dbfile = "/home/undef/db.sqlite";
     my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
     my %query;
     for ( 0 .. 23 ) {
@@ -175,9 +175,6 @@ get '/domain/:param' => sub {
            $self->render( text => "invalid" );
            return !! 1;
         }
-
-
-    my $dbfile = "/home/undef/db.sqlite";
     my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
 
     my $stmt = qq(SELECT domain FROM blocked WHERE time like '$param%');
@@ -191,36 +188,7 @@ get '/domain/:param' => sub {
         $clients{ $row[0] }++;
     }
     my %top;
-    my $i;
-    foreach my $name ( sort { $clients{$b} <=> $clients{$a} } keys %clients ) {
-            $top{$name} = $clients{$name};
-            $i++;
-            if ( $i > 29 ) {
-                last;
-            }
-        }
-    $self->render( json => \%top );
-};
-
-
-get '/top/clients' => sub {
-    my $self   = shift;
-    my $dbfile = "/home/undef/db.sqlite";
-    my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
-
-    my $stmt = qq(SELECT source FROM query;);
-    my $sth  = $dbh->prepare($stmt);
-    my $rv   = $sth->execute() or die $DBI::errstr;
-    if ( $rv < 0 ) {
-        print $DBI::errstr;
-    }
-	my %clients;
-    while ( my @row = $sth->fetchrow_array() ) {
-        my @time = split /-/, $row[0];
-        $clients{ $row[0] }++;
-    }
-    my %top;
-    my $i;
+    $i=0;
     foreach my $name ( sort { $clients{$b} <=> $clients{$a} } keys %clients ) {
             $top{$name} = $clients{$name};
             $i++;
@@ -250,14 +218,14 @@ window.onload = function () {
     $.getJSON("/allowed/<%= thisparam %>", function(data) {
             $.each(data, function(key, value){
             time = key.split(/\:|\-/g);
-            dataPoints.push({x: new Date(2018, 5, 9, time[0], time[1]),y: parseInt(value)});
+            dataPoints.push({x: new Date(<%= gettime("year") %>, <%= gettime("month")%>, <%= gettime("day")%>, time[0], time[1]),y: parseInt(value)});
             });
 
         var dataPoints2 = [];
         $.getJSON("/blocked/<%= thisparam %>", function(data) {
             $.each(data, function(key, value){
             time = key.split(/\:|\-/g);
-            dataPoints2.push({x: new Date(2018, 5, 9, time[0], time[1]),y: parseInt(value)});
+            dataPoints2.push({x: new Date(<%= gettime("year")%>, <%= gettime("month")%>, <%= gettime("day")%>, time[0], time[1]),y: parseInt(value)});
             });
             chart.render();
          });
@@ -300,7 +268,7 @@ window.onload = function () {
 	
 		title:{
 			text:"Top Blocked Queries",
-			fontSize: 18
+			fontSize: 12
 		},
 		axisX:{
 			   labelFontSize: 12,
@@ -358,11 +326,9 @@ window.onload = function () {
 </script>
 </head>
 <body>
-
-	<%= stats %> 
-
+<div>Statistics for NYC server. <p></div>
 <div id="chartContainer" style="height: 300px; max-width: 1000px; margin: 0px auto;"></div>
-<div id="chartContainer3" style="height: 800px; max-width: 1000px; margin: 0px auto;"></div>
+<div id="chartContainer3" style="height: 400px; max-width: 1000px; margin: 0px auto;"></div>
 
 <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script></body>
