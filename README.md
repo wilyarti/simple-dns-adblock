@@ -3,15 +3,15 @@ simple dns adblocker using dnsmasq
 ![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/dnsblock_stats.png)
 
 ## Web Front End
-The web front end "rtstats.pl" connects to a sqlite database created by "enterstats.pl". It pulls usage statistics for a 24 hour period and plots them using canvas.js. For security and privacy reasons only blocked queries are recorded in the sqlite database.
+The web front end "rtgraph.pl" connects to a sqlite database created by "enterstats.pl". It pulls usage statistics for a 24 hour period and plots them using canvas.js. For security and privacy reasons only blocked queries are recorded in the sqlite database.
 
-The "rtstats.pl" server is a Mojolicious Lite web app that uses JSON to communicate with the JavaScript web app.
+The "rtgraph.pl" server is a Mojolicious Lite web app that uses JSON to communicate with the JavaScript web app.
 
 You can see an example running on http://opens3.net
 
 ### Running the web front end
 To run the web front end: 
-> su -u nobody -c "hypnotoad rtstats.pl"
+> su -u nobody -c "hypnotoad rtgraph.pl"
 
 This will run the server as the user nobody. If you want allow connections from the internet use Nginx as a proxy server.
 
