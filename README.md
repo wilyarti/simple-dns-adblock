@@ -11,7 +11,7 @@ You can see an example running on http://opens3.net
 
 ### Running the web front end
 To run the web front end: 
-># su -u nobody -c "hypnotoad rtstats.pl
+> su -u nobody -c "hypnotoad rtstats.pl"
 
 This will run the server as the user nobody. If you want allow connections from the internet use Nginx as a proxy server.
 
