@@ -1,6 +1,19 @@
 # simple-dns-adblock
 simple dns adblocker using dnsmasq
-![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/Screenshot_2018-05-09_23-59-00.png)
+![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/dnsblock_stats.png)
+
+## Web Front End
+The web front end "rtstats.pl" connects to a sqlite database created by "enterstats.pl". It pulls usage statistics for a 24 hour period and plots them using canvas.js. For security and privacy reasons only blocked queries are recorded in the sqlite database.
+
+The "rtstats.pl" server is a Mojolicious Lite web app that uses JSON to communicate with the JavaScript web app.
+
+You can see an example running on http://opens3.net
+
+### Running the web front end
+To run the web front end: 
+># su -u nobody -c "hypnotoad rtstats.pl
+
+This will run the server as the user nobody. If you want allow connections from the internet use Nginx as a proxy server.
 
 #### To install on windows:
 
@@ -59,30 +72,4 @@ If there are any make sure /usr/local/etc/dnsmasq.d is owned by "nobody:nobody".
 Start dnsmasq:
 > service dnsmasq start
 
-### Graphing
-To create graphs like the one at the top of this document, download minutelog.pl and run this command:
-> perl minutelog.pl 28 Mar /var/log/pihole.log
-
-You will need to install GNUplot and ImageMagick installed to create the graphs.
-
-### Web front end
-I have written a simple JavaScript based grapher that uses Perl and Mojolicious as a backend.
-
-It is currently only for internal use at it analyses the whole log file ever 3rd time a GET request is issued.
-
-The future plan is to have a dedicated server that get's queries about certain statistics and analyses the log file as it runs.
-
-To run the program:
-```
-1.) create /home/nobody and /home/nobody/public
-2.) place graphstats.pl in /home/nobody
-3.) change ownership to "nobody:nobody" 
-> chown -R nobody:nobody /home/nobody
-4.) run the server
-> su -m nobody -c 'hypnotoad graphstats.pl'
-5.) type in the following url:
-> 127.0.0.1:8080/03:28
-```
-
-The url can be changed to your hosts IPV4 public address, the 03:28 refers to the month and day. Change it accordingly to which date you want polled.
 
