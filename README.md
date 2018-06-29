@@ -11,15 +11,15 @@ You can see an example running on http://opens3.net
 
 ### Running the web front end
 To run the web front end: 
-> su -u nobody -c "hypnotoad rtgraph.pl"
+> su -m nobody -c "hypnotoad rtgraph.pl"
 
 This will run the server as the user nobody. If you want allow connections from the internet use Nginx as a proxy server.
 
-#### To install on windows:
+#### Simple windows only version:
 
 Download windnsblock.exe and run as administrator this will use the host file to DNS block the 122k domains in the main Ad Blocker list.
 
-#### To install (FreeBSD only):
+#### To install DNS Server (FreeBSD only):
 Install dnsmasq. Enable dnsmasq:
 ```
 sysrc dnsmasq_enable="YES"
