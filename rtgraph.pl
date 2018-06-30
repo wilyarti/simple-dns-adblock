@@ -236,6 +236,8 @@ __DATA__
 @@ block.html.ep
 <!DOCTYPE HTML>
 <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="/resources/demos/style.css">
 <html>
 <head>
 
@@ -372,13 +374,32 @@ window.onload = function () {
         });
         
 
-}
+
+ $(function() {
+     $('#datepicker').datepicker( {
+         altFormat: "M-dd",
+         onSelect: function(date) {
+                        time = date.split(/\/|\-/g);
+            console.log(time[0]);
+            console.log(time[1]);
+            var months = [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" ];
+            var month;
+            month = time[0] -1;
+            console.log(months[month]);
+            var url = "/" + months[month] + "-" + parseInt(time[1]);
+            window.location.href = url;
+            },
+         inline: true,
+     });
+ });
+  }
 </script>
 </head>
 <body>
 <!-- Sidebar -->
-<div class="w3-sidebar w3-light-grey w3-bar-block" style="width:15%">
+<div class="w3-sidebar w3-light-grey w3-bar-block" style="width:20%">
   <h3 class="w3-bar-item">Menu</h3>
+  <p class="w3-bar-item w3-button">Date: <input type="text" id="datepicker"></p>
   <a href="http://nyc.opens3.net" class="w3-bar-item w3-button">New York Server</a>
   <a href="http://sgp.opens3.net" class="w3-bar-item w3-button">Singapore Server</a>
   <p class="w3-bar-item w3-button" id="stats"></p>
@@ -386,7 +407,7 @@ window.onload = function () {
 
 </div>
 <!-- Page Content -->
-<div style="margin-left:15%">
+<div style="margin-left:20%">
 
 <div class="w3-container w3-teal">
   <h1>Server Statistics</h1>
@@ -396,6 +417,8 @@ window.onload = function () {
 <div id="chartContainer3" style="height: 400px; max-width: 1000px; margin: 0px auto;"></div>
 
 <script src="https://canvasjs.com/assets/script/canvasjs.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script></body>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  </body>
 </html>
 
