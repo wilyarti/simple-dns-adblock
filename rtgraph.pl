@@ -8,7 +8,7 @@ use DBI;
 
 our $text_status;
 
-our $dbfile = "/home/nobody/db.sqlite";
+our $dbfile = "/home/undef/db.sqlite";
 
 app->config( hypnotoad => { listen => ['http://*:8000'] } );
 
@@ -17,6 +17,39 @@ helper thisparam => sub {
     my $c     = shift;
     my $param = $c->param('param');
     return $param;
+
+};
+
+get '/statistics' => sub {
+    my $self   = shift;
+
+    my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
+    my %query;
+    for ( 0 .. 23 ) {
+        my $i = $_;
+        for ( 0 .. 59 ) {
+            my $s = sprintf "%02d:%02d", $i, $_;
+            $query{$s} = 0;
+        }
+    }
+    my $stmt = qq(SELECT * from query; );
+    my $sth  = $dbh->prepare($stmt);
+    my $rv   = $sth->execute() or die $DBI::errstr;
+    if ( $rv < 0 ) {
+        print $DBI::errstr;
+    }
+    my $i =0;
+    my (%clients, %domains);
+    while ( my @row = $sth->fetchrow_array() ) {
+        $i++;
+        $clients{$row[1]}++;
+        $domains{$row[2]}++;
+    }
+    my %statistics;
+    $statistics{"Total Queries:"} = $i;
+    $statistics{"Total Clients:"} = scalar keys %clients;
+    $statistics{"Total Domains:"} = scalar keys %domains;
+    $self->render( json => \%statistics );
 
 };
 
@@ -29,7 +62,6 @@ helper gettime => sub {
             $dayOfWeek, $dayOfYear, $daylightSavings
         ) = localtime();
     my $year = 1900 + $yearOffset;
-    my $param = $c->param('param');
     my %time;
     $time{"year"} = $year;
     $time{"day"} = $day;
@@ -94,13 +126,10 @@ get '/allowed/:param' => sub {
     if ( $rv < 0 ) {
         print $DBI::errstr;
     }
-    my $count;
     while ( my @row = $sth->fetchrow_array() ) {
         my @time = split /-/, $row[0];
         $query{ $time[2] }++;
-        $count++;
     }
-    say "total queries: $count";
     $self->render( json => \%query );
 };
 
@@ -206,7 +235,7 @@ __DATA__
 
 @@ block.html.ep
 <!DOCTYPE HTML>
-
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
 <html>
 <head>
 
@@ -216,26 +245,47 @@ window.onload = function () {
 
     var dataPoints = [];
     $.getJSON("/allowed/<%= thisparam %>", function(data) {
+            var $j = 0;
             $.each(data, function(key, value){
             time = key.split(/\:|\-/g);
             dataPoints.push({x: new Date(<%= gettime("year") %>, <%= gettime("month")%>, <%= gettime("day")%>, time[0], time[1]),y: parseInt(value)});
+            $j = $j + parseInt(value);
             });
+            var $stats = $( "#localstats" );
+            str = "Queries: " + $j + "<br>";
+            html = $.parseHTML( str );
+            $stats.append( html );
 
         var dataPoints2 = [];
         $.getJSON("/blocked/<%= thisparam %>", function(data) {
+            var $i = 0;
             $.each(data, function(key, value){
-            time = key.split(/\:|\-/g);
-            dataPoints2.push({x: new Date(<%= gettime("year")%>, <%= gettime("month")%>, <%= gettime("day")%>, time[0], time[1]),y: parseInt(value)});
+                time = key.split(/\:|\-/g);
+                dataPoints2.push({x: new Date(<%= gettime("year")%>, <%= gettime("month")%>, <%= gettime("day")%>, time[0], time[1]),y: parseInt(value)});
+                $i = $i + parseInt(value);
             });
+            var $stats = $( "#localstats" );
+            str = "Blocked: " + $i + "<br>";
+            html = $.parseHTML( str );
+            $stats.append( html );
             chart.render();
          });
+
+        $.getJSON("/statistics", function(data) {
+            $.each(data, function(key, value){
+            var $stats = $( "#stats" );
+            str = key + " " + value + "<br>";
+            html = $.parseHTML( str );
+            $stats.append( html );
+         });
+            });
 
         var chart = new CanvasJS.Chart("chartContainer", {
             theme: "light2", // "light1", "light2", "dark1", "dark2"
             animationEnabled: true,
             zoomEnabled: true,
             title: {
-                text: "Queries"
+                text: "Queries Per Minute"
             },
             axisX:{
                 //Try Changing to MMMM
@@ -326,6 +376,21 @@ window.onload = function () {
 </script>
 </head>
 <body>
+<!-- Sidebar -->
+<div class="w3-sidebar w3-light-grey w3-bar-block" style="width:15%">
+  <h3 class="w3-bar-item">Menu</h3>
+  <a href="http://nyc.opens3.net" class="w3-bar-item w3-button">New York Server</a>
+  <a href="http://sgp.opens3.net" class="w3-bar-item w3-button">Singapore Server</a>
+  <p class="w3-bar-item w3-button" id="stats"></p>
+  <p class="w3-bar-item w3-button" id="localstats"></p>
+
+</div>
+<!-- Page Content -->
+<div style="margin-left:15%">
+
+<div class="w3-container w3-teal">
+  <h1>Server Statistics</h1>
+</div>
 <div>Statistics for NYC server. <p></div>
 <div id="chartContainer" style="height: 300px; max-width: 1000px; margin: 0px auto;"></div>
 <div id="chartContainer3" style="height: 400px; max-width: 1000px; margin: 0px auto;"></div>
