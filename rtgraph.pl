@@ -8,7 +8,7 @@ use DBI;
 
 our $text_status;
 
-our $dbfile = "/home/undef/db.sqlite";
+our $dbfile = "/home/nobody/db.sqlite";
 
 app->config( hypnotoad => { listen => ['http://*:8000'] } );
 
