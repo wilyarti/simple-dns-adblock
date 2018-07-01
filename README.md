@@ -15,6 +15,23 @@ To run the web front end:
 
 This will run the server as the user nobody. If you want allow connections from the internet use Nginx as a proxy server.
 
+### Updating the blocklist
+To update the blocklist simple run:
+>su -m nobody -c "update_dnsmasq"
+
+After placing update_dnsmasq in your PATH and making it executable.
+
+This script will pull down the latest blocklist consisting of over 130,000 domains.
+
+### Running the log processor
+"enterstats.pl" first processes all the lines in the dnmasq logfile then monitors the file for changes and continues to add entried to the sqlite database.
+
+This database is polled by the web app to get statistics to send to the front end.
+
+To run:
+>su -m nobody -c "perl enterstats.pl" &
+
+
 #### Simple windows only version:
 
 Download windnsblock.exe and run as administrator this will use the host file to DNS block the 122k domains in the main Ad Blocker list.
