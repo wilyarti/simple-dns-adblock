@@ -1,31 +1,23 @@
 #! /usr/bin/env perl
-use 5.020;
 use warnings;
 use strict;
 use Data::Dumper;
 use DateTime;
 use File::Tail;
-use DBI;
+use 5.26.1;
+use Redis;
+use feature "say";
 
-our $logfile = "/home/undef/pihole.log";
-our $dbfile = "/home/undef/db.sqlite";
-our $dbh;
+my $redis = Redis->new(
+    server => "127.0.0.1:6379",
+    name => "stattera",
+) or die ("Can't connect to server!");
+
+our $logfile = "pihole.log";
+our $dbfile = "db.sqlite";
 
 
-&initdb;
 &main;
-
-# initialize database tables
-sub initdb {
- $dbh = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
-eval { $dbh->do("CREATE TABLE query (time CHAR(16) NOT NULL, 
-                                        source CHAR(16) NOT NULL,
-                                        domain CHAR(255) NOT NULL)"); };
-warn $@ if $@;
-eval { $dbh->do("CREATE TABLE blocked (time CHAR(16) NOT NULL,
-                                        domain CHAR(255) NOT NULL)"); };
-warn $@ if $@;
-}
 
 sub main {
     open( my $FH, "<", $logfile ) or die "Can't open $logfile";
@@ -51,36 +43,46 @@ sub proc {
 
         ### DBI stuff
         if (scalar(@hms) >= 2) {
-                &doitnow( "query", "$words[0]-$words[1]-$hms[0]:$hms[1]", "$host[0]", "$words[7]", 0 );
+
+            say
+            &doitnow( "query", "$words[0]-$words[1]-$hms[0]:$hms[1]","$words[0]-$words[1]", "$hms[0]:$hms[1]", "$host[0]", "$words[7]", 0 );
         }
     }
-    elsif ( $line =~ m/blocklist.txt/ ) {
+    elsif ( $line =~ m/blocklist.txt/ && $line ne m/bad name/) {
         $line =~ s/ +/ /g;
         my @words = split / /, $line;
         my @hms  = split /:/, $words[2];
+        my @host  = split /\//, $words[5];
 
         ### DBI stuff
         if (scalar(@hms) >= 2) {
-                &doitnow( "blocked", "$words[0]-$words[1]-$hms[0]:$hms[1]", "", "$words[7]", 1 );
+                &doitnow( "blocked", "$words[0]-$words[1]-$hms[0]:$hms[1]", "$words[0]-$words[1]", "$hms[0]:$hms[1]", "$host[0]", "$words[7]", 1 );
         }
     }
 
 }
 
 sub doitnow {
-    my ( $table, $time, $source, $domain, $type ) = @_;
-    say "inserting $table, $time, $source, $domain, $type ";
-    my $sql;
-    if ($type == 0) {
-        $sql = "INSERT INTO $table ( 'time', 'source', 'domain' ) VALUES ( '$time', '$source', '$domain')";
-    } elsif ($type == 1) {
-        $sql = "INSERT INTO $table ( 'time', 'domain' ) VALUES ( '$time', '$domain')";
+    my ( $table, $time,$short_date, $hms, $source, $domain, $type ) = @_;
+    say "inserting $table, $short_date, $time, $hms, $source, $domain, $type ";
+    #normal query
+
+    #overall totals
+    say $redis->hincrby("totals", "$table",1 );
+    say $redis->hincrby("totals", "$source",1 );
+    say $redis->hincrby("domains", "$domain",1 );
+
+    # daily table
+    # statistics for time
+    say $redis->hincrby("$short_date:$table", "$hms", 1);
+
+    # overall daily table
+    say $redis->hincrby("$table", "$short_date",1 );
+
+    if ($type == 1) {
+        #count blocked domains
+        say $redis->hincrby("$short_date:$table:domains", "$domain", 1);
     } else {
-        return !! 1;
-    }
-    eval { $dbh->do($sql); };
-    if ($@) {
-        warn $@;
         return !! 1;
     }
     return !! 0;
