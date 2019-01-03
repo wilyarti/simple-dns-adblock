@@ -5,10 +5,15 @@ use Mojolicious::Lite;
 use DateTime;
 use Mojo::JSON qw(decode_json encode_json);
 use DBI;
+use Redis;
+use Data::Dumper;
 
 our $text_status;
+my $redis = Redis->new(
+    server => "127.0.0.1:6379",
+    name => "stattera",
+) or die ("Can't connect to server!");
 
-our $dbfile = "/home/nobody/db.sqlite";
 
 app->config( hypnotoad => { listen => ['http://*:8000'] } );
 
@@ -23,32 +28,11 @@ helper thisparam => sub {
 get '/statistics' => sub {
     my $self   = shift;
 
-    my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
-    my %query;
-    for ( 0 .. 23 ) {
-        my $i = $_;
-        for ( 0 .. 59 ) {
-            my $s = sprintf "%02d:%02d", $i, $_;
-            $query{$s} = 0;
-        }
-    }
-    my $stmt = qq(SELECT * from query; );
-    my $sth  = $dbh->prepare($stmt);
-    my $rv   = $sth->execute() or die $DBI::errstr;
-    if ( $rv < 0 ) {
-        print $DBI::errstr;
-    }
-    my $i =0;
-    my (%clients, %domains);
-    while ( my @row = $sth->fetchrow_array() ) {
-        $i++;
-        $clients{$row[1]}++;
-        $domains{$row[2]}++;
-    }
     my %statistics;
-    $statistics{"Total Queries:"} = $i;
-    $statistics{"Total Clients:"} = scalar keys %clients;
-    $statistics{"Total Domains:"} = scalar keys %domains;
+
+    $statistics{"Total Queries:"} = $redis->hget("totals", "query");
+    $statistics{"Total Clients:"} = ($redis->hlen("totals")-2);
+    $statistics{"Total Domains:"} = $redis->hlen("domains");
     $self->render( json => \%statistics );
 
 };
@@ -56,11 +40,11 @@ get '/statistics' => sub {
 helper gettime => sub {
     my $c     = shift;
     my $arg = shift;
-        my (
-            $second,    $minute,    $hour,
-            $day,       $m,         $yearOffset,
-            $dayOfWeek, $dayOfYear, $daylightSavings
-        ) = localtime();
+    my (
+        $second,    $minute,    $hour,
+        $day,       $m,         $yearOffset,
+        $dayOfWeek, $dayOfYear, $daylightSavings
+    ) = localtime();
     my $year = 1900 + $yearOffset;
     my %time;
     $time{"year"} = $year;
@@ -107,11 +91,10 @@ get '/allowed/:param' => sub {
     }
     if ($i != 2) {
         say "invalid!";
-       $self->render( text => "invalid" );
-       return !! 1;
+        $self->render( text => "invalid" );
+        return !! 1;
     }
 
-    my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
     my %query;
     for ( 0 .. 23 ) {
         my $i = $_;
@@ -120,16 +103,7 @@ get '/allowed/:param' => sub {
             $query{$s} = 0;
         }
     }
-    my $stmt = qq(SELECT time FROM query WHERE time like '$param-%' );
-    my $sth  = $dbh->prepare($stmt);
-    my $rv   = $sth->execute() or die $DBI::errstr;
-    if ( $rv < 0 ) {
-        print $DBI::errstr;
-    }
-    while ( my @row = $sth->fetchrow_array() ) {
-        my @time = split /-/, $row[0];
-        $query{ $time[2] }++;
-    }
+    %query = $redis->hgetall("$param:query");
     $self->render( json => \%query );
 };
 
@@ -137,27 +111,26 @@ get '/blocked/:param' => sub {
     my $self   = shift;
     my $param  = $self->param('param');
     ## PARAM CHECK
-        my @check = split /-/, $param;
-        my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-        my $i = 0;
-        foreach (@months) {
-            if ($check[0] eq $_) {
-                $i++;
-                last;
-            }
+    my @check = split /-/, $param;
+    my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+    my $i = 0;
+    foreach (@months) {
+        if ($check[0] eq $_) {
+            $i++;
+            last;
         }
-        for (1 .. 31) {
-            if ($check[1] eq $_) {
-                $i++;
-                last;
-            }
+    }
+    for (1 .. 31) {
+        if ($check[1] eq $_) {
+            $i++;
+            last;
         }
-        if ($i != 2) {
-            say "invalid!";
-           $self->render( text => "invalid" );
-           return !! 1;
-        }
-    my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
+    }
+    if ($i != 2) {
+        say "invalid!";
+        $self->render( text => "invalid" );
+        return !! 1;
+    }
     my %query;
     for ( 0 .. 23 ) {
         my $i = $_;
@@ -166,17 +139,7 @@ get '/blocked/:param' => sub {
             $query{$s} = 0;
         }
     }
-    my $stmt = qq(SELECT time FROM blocked WHERE time like '$param-%' );
-    my $sth  = $dbh->prepare($stmt);
-    my $rv   = $sth->execute() or die $DBI::errstr;
-    if ( $rv < 0 ) {
-        print $DBI::errstr;
-    }
-
-    while ( my @row = $sth->fetchrow_array() ) {
-        my @time = split /-/, $row[0];
-        $query{ $time[2] }++;
-    }
+    %query = $redis->hgetall("$param:blocked");
     $self->render( json => \%query );
 };
 
@@ -184,47 +147,37 @@ get '/domain/:param' => sub {
     my $self   = shift;
     my $param  = $self->param('param');
     ## PARAM CHECK
-        my @check = split /-/, $param;
-        my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-        my $i = 0;
-        foreach (@months) {
-            if ($check[0] eq $_) {
-                $i++;
-                last;
-            }
+    my @check = split /-/, $param;
+    my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+    my $i = 0;
+    foreach (@months) {
+        if ($check[0] eq $_) {
+            $i++;
+            last;
         }
-        for (1 .. 31) {
-            if ($check[1] eq $_) {
-                $i++;
-                last;
-            }
-        }
-        if ($i != 2) {
-            say "invalid!";
-           $self->render( text => "invalid" );
-           return !! 1;
-        }
-    my $dbh    = DBI->connect( "dbi:SQLite:dbname=$dbfile", "", "" );
-
-    my $stmt = qq(SELECT domain FROM blocked WHERE time like '$param%');
-    my $sth  = $dbh->prepare($stmt);
-    my $rv   = $sth->execute() or die $DBI::errstr;
-    if ( $rv < 0 ) {
-        print $DBI::errstr;
     }
-	my %clients;
-    while ( my @row = $sth->fetchrow_array() ) {
-        $clients{ $row[0] }++;
+    for (1 .. 31) {
+        if ($check[1] eq $_) {
+            $i++;
+            last;
+        }
+    }
+    if ($i != 2) {
+        say "invalid!";
+        $self->render( text => "invalid" );
+        return !! 1;
     }
     my %top;
-    $i=0;
-    foreach my $name ( sort { $clients{$b} <=> $clients{$a} } keys %clients ) {
-            $top{$name} = $clients{$name};
-            $i++;
-            if ( $i > 29 ) {
-                last;
-            }
+    my %clients = $redis->hgetall("$param:blocked:domains");
+    foreach my $name (sort {$clients{$b} <=> $clients{$a}} keys %clients)
+    {
+        $top{$name} = $clients{$name};
+        $i++;
+        if ($i > 29) {
+            last;
         }
+    }
+
     $self->render( json => \%top );
 };
 
@@ -401,7 +354,6 @@ window.onload = function () {
   <h3 class="w3-bar-item">Menu</h3>
   <p class="w3-bar-item w3-button">Date: <input type="text" id="datepicker"></p>
   <a href="http://nyc.opens3.net" class="w3-bar-item w3-button">New York Server</a>
-  <a href="http://sgp.opens3.net" class="w3-bar-item w3-button">Singapore Server</a>
   <p class="w3-bar-item w3-button" id="stats"></p>
   <p class="w3-bar-item w3-button" id="localstats"></p>
 
