@@ -13,7 +13,7 @@ my $redis = Redis->new(
     name => "stattera",
 ) or die ("Can't connect to server!");
 
-our $logfile = "pihole.log";
+our $logfile = "/home/undef/pihole.log";
 our $dbfile = "db.sqlite";
 
 
