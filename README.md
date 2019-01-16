@@ -1,6 +1,8 @@
 # simple-dns-adblock
 simple dns adblocker using dnsmasq
-![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/dnsblock_stats.png)
+![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/graph.png)
+![alt text](https://raw.githubusercontent.com/wilyarti/simple-dns-adblock/master/graph2.png)
+
 
 ## Web Front End
 Please see my repository https://github.com/wilyarti/opens3.net/ for the front
